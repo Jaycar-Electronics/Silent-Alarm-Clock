@@ -141,7 +141,7 @@ void detectClaps()
     return;
   }
 
-  unsigned long duration = firstClapTime - timeNow;
+  unsigned long duration = timeNow - firstClapTime;
 
   if (duration > clap_debounce_ms && duration < clap_delay_ms)
   {

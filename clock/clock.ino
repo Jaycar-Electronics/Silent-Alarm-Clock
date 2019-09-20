@@ -1,6 +1,9 @@
 
+#include <Wire.h>
 #include <RTClib.h> //version 1.0.3
+#include <Adafruit_GFX.h>
 #include <Adafruit_NeoMatrix.h>
+#include <Adafruit_NeoPixel.h>
 
 // if you want to debug the timing, you can enable the TIMELAPSE; and it will rush through it:
 //#define TIMELAPSE
@@ -9,7 +12,7 @@
 const int pin_sensor = 2;
 const int pin_buzzer = 3;
 const int pin_shield = 13;
-const long clap_delay_ms = 1000L;    // about half a second between claps to activate
+const long clap_delay_ms = 3000L;    // about 3 seconds between claps to activate
 const long clap_debounce_ms = 10L; // a clap is about 10 milliseconds long
 
 // time constants, at what time do the effects take place?
@@ -31,6 +34,9 @@ Adafruit_NeoMatrix shield(w, h, pin_shield,
 
 RTC_DS1307 rtc;
 
+char timeBuffer[] = "real time: hh:mm";
+
+
 double hoursAsDecimal = 0;
 
 void setup()
@@ -39,6 +45,8 @@ void setup()
   Serial.begin(9600);
   shield.begin();
   shield.setBrightness(20);
+  shield.setTextWrap(false);
+  shield.setTextColor(shield.Color(255, 255, 0));
 
   pinMode(pin_sensor, INPUT);
   pinMode(pin_buzzer, OUTPUT);
@@ -55,13 +63,13 @@ void loop()
   // put your main code here, to run repeatedly:
 
   DateTime realTimeNow = rtc.now();
+
   int hours = realTimeNow.hour();
   int minutes = realTimeNow.minute();
 
 #ifdef TIMELAPSE
 
   hoursAsDecimal += 0.1; //add 6 minutes each loop (100ms)
-  //loop around 24 hours; this won't happen with the rtc
   if (hoursAsDecimal > 24)
   {
     hoursAsDecimal -= 24;
@@ -79,14 +87,31 @@ void loop()
   setColourFromTime(hoursAsDecimal);
   shield.show();
 
+
+
   if (hasClapped)
   {
-    hasClapped = false;
     //show time on the shield;
-    shield.setTextColor(shield.Color(255, 255, 0));
-    Serial.print("Got clap signal, outputing time:");
-    Serial.println(realTimeNow.toString("hh:mm"));
-    shield.print(realTimeNow.toString("hh:mm"));
+    Serial.print("Got clap signal, outputing time: ");
+
+    char buf[] = "hh:mm:ss"; 
+
+    Serial.println(realTimeNow.toString(buf));
+
+    char buf2[] = "hh:mm";
+    realTimeNow.toString(buf2);
+
+    for(char *i = buf2; *i != 0; i++){
+      shield.clear();
+      shield.setCursor(w-5,0);
+      shield.print(*i); 
+      shield.show(); 
+      Serial.println(*i);
+      delay(1000);
+    }
+
+
+    hasClapped = false;
   }
 
   delay(100);
@@ -151,7 +176,7 @@ void setupRTC()
   DateTime now = rtc.now();
 
   Serial.println("RTC running, time:");
-  Serial.println(now.toString("hh:mm:ss"));
+  Serial.println(now.toString(timeBuffer));
 }
 
 // This function will fire any time we detect a clap
@@ -166,7 +191,7 @@ void detectClaps()
   }
 
   //duration from first clap
-  unsigned long duration = firstClapTime - timeNow;
+  unsigned long duration = timeNow - firstClapTime;
 
   if (duration > clap_debounce_ms && duration < clap_delay_ms)
   {
@@ -177,6 +202,7 @@ void detectClaps()
   else if (duration > clap_delay_ms)
   {
     //timeout.. took too long
-    firstClapTime = 0;
+    //this is when we've clapped by the way, so set the timeNow to be our clap.
+    firstClapTime = timeNow;
   }
 }
